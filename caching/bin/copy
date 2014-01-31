@@ -1,0 +1,74 @@
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Queue;
+
+public class Main {
+
+	public static void main(String[] args) throws IOException {
+		Kattio io = new Kattio(System.in);
+		int cacheSpace = io.getInt();
+		int numObjects = io.getInt();
+		int numAccesses = io.getInt();
+		List<Integer> accesses = new ArrayList<Integer>();
+		for (int i = 0; i < numAccesses; i++) {
+			accesses.add(io.getInt());
+		}
+		io.flush();
+		System.out.println(getOptimalCacheWrites(cacheSpace, numObjects, accesses));
+	}
+
+	private static int getOptimalCacheWrites(int cacheSpace, int numObjects, List<Integer> accesses) {
+		Map<Integer, Queue<Integer>> occurrences = getOccurances(accesses);
+		Map<Integer, Boolean> cache = new HashMap<Integer, Boolean>();
+		Queue<CacheObject> nextOccurrences = new PriorityQueue<CacheObject>();
+		// Map<Integer, CacheObject> nextOccurancesUpdater = new HashMap<Integer, CacheObject>();
+		int cacheWrites = 0, accessIndex = 0;
+		while (accessIndex < accesses.size()) {
+			int currentObject = accesses.get(accessIndex);
+			accessIndex++;
+			occurrences.get(currentObject).poll();
+			if (cacheWrites < cacheSpace) {
+				if (!cache.containsKey(currentObject)) {
+					nextOccurrences.add(new CacheObject(currentObject, getNextOccurrance(currentObject, occurrences)));
+					cache.put(currentObject, true);
+					cacheWrites++;
+				}
+			} else {
+				if (!(cache.containsKey(currentObject) && cache.get(currentObject) == true)) {
+					int objectToReplace = nextOccurrences.poll().getObjectNumber();
+					nextOccurrences.add(new CacheObject(currentObject, getNextOccurrance(currentObject, occurrences)));
+					cache.put(currentObject, true);
+					cache.put(objectToReplace, false);
+					cacheWrites++;
+				}
+			}
+		}
+		return cacheWrites;
+	}
+
+	private static int getNextOccurrance(int currentObject, Map<Integer, Queue<Integer>> occurrences) {
+		if (occurrences.get(currentObject).isEmpty())
+			return Integer.MAX_VALUE;
+		else
+			return occurrences.get(currentObject).peek();
+	}
+
+	private static Map<Integer, Queue<Integer>> getOccurances(List<Integer> accesses) {
+		Map<Integer, Queue<Integer>> occurances = new HashMap<Integer, Queue<Integer>>();
+		for (int i = 0; i < accesses.size(); i++) {
+			if (occurances.containsKey(accesses.get(i))) {
+				occurances.get(accesses.get(i)).add(i);
+			} else {
+				Queue<Integer> list = new LinkedList<Integer>();
+				list.add(i);
+				occurances.put(accesses.get(i), list);
+			}
+		}
+		return occurances;
+	}
+}
