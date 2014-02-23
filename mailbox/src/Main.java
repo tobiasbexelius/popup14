@@ -21,7 +21,6 @@ public class Main {
 
 	private static int searchForWorstCase(int min, int max, int mailboxesLeft) {
 
-		// System.out.println(min + "\t" + max + "\t" + "\t" + mailboxesLeft);
 		MailboxTest test = new MailboxTest(min, max, mailboxesLeft);
 		if (resultCache.containsKey(test)) {
 			return resultCache.get(test);
