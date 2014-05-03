@@ -5,11 +5,23 @@ public class State implements Comparable<State> {
 	private final char[][] board;
 	private final int hashCode;
 	private final int cost;
+	private final Coordinate lastChanged;
 
-	public State(char[][] board, int unsatConstraints) {
+	public State(char[][] board, int cost, Coordinate lastChanged) {
 		this.board = board;
-		this.hashCode = Arrays.deepHashCode(board);
-		this.cost = unsatConstraints;
+		this.cost = cost;
+		this.lastChanged = lastChanged;
+
+		int result = 1;
+		result = 31 * result + Arrays.deepHashCode(board);
+		result = 31 * result + cost;
+
+		this.hashCode = result;
+
+	}
+
+	public Coordinate getLastChanged() {
+		return lastChanged;
 	}
 
 	public int getCost() {
@@ -22,7 +34,9 @@ public class State implements Comparable<State> {
 
 	@Override
 	public int compareTo(State s) {
-		return getCost() - s.getCost();
+		if (getCost() == s.getCost() && equals(s))
+			return 0;
+		return getCost() - s.getCost() >= 0 ? 1 : -1;
 	}
 
 	@Override

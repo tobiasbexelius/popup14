@@ -17,7 +17,7 @@ public class Gokigen {
 	private final char[][] puzzle;
 	private final int n;
 	private final Set<State> visited;
-	private final Set<Coordinate> constraints;
+	private Set<Coordinate> constraints;
 
 	public Gokigen(char[][] puzzle, int n) {
 		this.puzzle = puzzle;
@@ -28,38 +28,60 @@ public class Gokigen {
 	}
 
 	public char[][] solve() {
-		fillDeterminableBoxes();
+		fillAllDeterminableBoxes(solution);
 		Queue<State> queue = new PriorityQueue<State>();
-		queue.add(new State(matrixCopy(solution), getUnsatConstraints(solution)));
+		State initialState = new State(matrixCopy(solution), getCost(solution), null);
+		queue.add(initialState);
+		visited.add(initialState);
 		while (true) {
 			State current = queue.poll();
-			if (current.getCost() == 0) {
+			if (current.getCost() == 0 && boardIsFilled(current.getBoard())) {
 				return current.getBoard();
 			}
+			Coordinate lastChanged = current.getLastChanged();
+			if (lastChanged != null) {
+				fillAllDeterminableBoxes(current.getBoard());
+				if (current.getCost() == 0 && boardIsFilled(current.getBoard())) {
+					return current.getBoard();
+				}
+			}
+
 			queue.addAll(getValidNeighbours(current));
 
 		}
 	}
 
+	private boolean boardIsFilled(char[][] board) {
+		for (int i = 0; i < board.length; i++)
+			for (int j = 0; j < board.length; j++)
+				if (board[i][j] == NOT_FILLED)
+					return false;
+		return true;
+	}
+
 	private List<State> getValidNeighbours(State current) {
 		List<State> validNeighbours = new ArrayList<State>();
-		char[][] solutionCopy = matrixCopy(current.getBoard());
+		char[][] workingCopy = matrixCopy(current.getBoard());
 		for (int i = 0; i < n; i++) {
 			for (int j = 0; j < n; j++) {
-				if (solutionCopy[i][j] == NOT_FILLED) {
-					solutionCopy[i][j] = UP;
-					int unsatConstraints = getUnsatConstraints(solutionCopy);
-					if (unsatConstraints != -1 && !containsLoops(new Coordinate(i, j), solutionCopy)) {
-						validNeighbours.add(new State(solutionCopy, unsatConstraints));
-						solutionCopy = matrixCopy(current.getBoard());
+				if (workingCopy[i][j] == NOT_FILLED) {
+					workingCopy[i][j] = UP;
+					int cost = getCost(workingCopy);
+					State newState = new State(workingCopy, cost, new Coordinate(i, j));
+					if (!visited.contains(newState) && cost != -1 && !containsLoops(new Coordinate(i, j), workingCopy)) {
+						validNeighbours.add(newState);
+						visited.add(newState);
+						workingCopy = matrixCopy(current.getBoard());
 					}
-					solutionCopy[i][j] = DOWN;
-					unsatConstraints = getUnsatConstraints(solutionCopy);
-					if (unsatConstraints != -1 && !containsLoops(new Coordinate(i, j), solutionCopy)) {
-						validNeighbours.add(new State(solutionCopy, unsatConstraints));
-						solutionCopy = matrixCopy(current.getBoard());
+					workingCopy[i][j] = DOWN;
+					cost = getCost(workingCopy);
+					newState = new State(workingCopy, cost, new Coordinate(i, j));
+					if (!visited.contains(newState) && cost != -1 && !containsLoops(new Coordinate(i, j), workingCopy)) {
+						validNeighbours.add(newState);
+						visited.add(newState);
+						workingCopy = matrixCopy(current.getBoard());
 					} else {
-						solutionCopy[i][j] = NOT_FILLED;
+						workingCopy[i][j] = NOT_FILLED;
 					}
 				}
 			}
@@ -67,22 +89,29 @@ public class Gokigen {
 		return validNeighbours;
 	}
 
-	private boolean containsLoops(Coordinate start, char[][] board) {
-		Queue<Coordinate> queue = new LinkedList<>();
-		boolean[][] visited = new boolean[n][n];
+	private boolean containsLoops(Coordinate box, char[][] board) {
+		List<Coordinate> adjacentNodes = getAdjacentNodes(box.getY(), box.getX());
+		for (Coordinate node : adjacentNodes)
+			if (containsLoopsFromStart(node, board))
+				return true;
+		return false;
+	}
 
+	private boolean containsLoopsFromStart(Coordinate start, char[][] board) {
+		Queue<Coordinate> queue = new LinkedList<>();
+		boolean[][] visited = new boolean[n + 1][n + 1];
 		queue.add(start);
 		visited[start.getY()][start.getX()] = true;
 		while (!queue.isEmpty()) {
 			Coordinate current = queue.poll();
 			List<Coordinate> neighbours = getNeighbours(current, board);
-			for (Coordinate neighbour : neighbours) {
-				if (visited[neighbour.getY()][neighbour.getX()]) {
+			for (Coordinate c : neighbours) {
+				if (visited[c.getY()][c.getX()]) {
 					return true;
 				}
-				if (!visited[neighbour.getY()][neighbour.getX()]) {
-					visited[neighbour.getY()][neighbour.getX()] = true;
-					queue.add(neighbour);
+				if (!visited[c.getY()][c.getX()]) {
+					visited[c.getY()][c.getX()] = true;
+					queue.add(c);
 				}
 
 			}
@@ -96,18 +125,16 @@ public class Gokigen {
 	private List<Coordinate> getNeighbours(Coordinate c, char[][] board) {
 		List<Coordinate> neighbours = new ArrayList<Coordinate>();
 		for (int k = 0; k < dx.length; k++) {
-			int x = c.getX() + dx[k];
-			int y = c.getY() + dy[k];
-			if (isInBounds(new Coordinate(x, y), n + 1) && edgeBetween(board, c.getX(), c.getY(), x, y)) {
-				Coordinate neighbour = new Coordinate(x, y, c);
-				if (!neighbour.equals(c.getParent()))
-					neighbours.add(neighbour);
+			Coordinate neighbour = new Coordinate(c.getX() + dx[k], c.getY() + dy[k], c);
+			if (!neighbour.equals(c.getParent()) && isInBounds(neighbour, n + 1) && edgeBetween(board, c, neighbour)) {
+				neighbours.add(neighbour);
 			}
 		}
 		return neighbours;
 	}
 
-	private boolean edgeBetween(char[][] board, int x1, int y1, int x2, int y2) {
+	private boolean edgeBetween(char[][] board, Coordinate node1, Coordinate node2) {
+		int x1 = node1.getX(), y1 = node1.getY(), x2 = node2.getX(), y2 = node2.getY();
 		int minX = Math.min(x1, x2);
 		int minY = Math.min(y1, y2);
 		char direction = board[minY][minX];
@@ -122,8 +149,8 @@ public class Gokigen {
 		return false;
 	}
 
-	private int getUnsatConstraints(char[][] board) {
-		int unsatConstraints = 0;
+	private int getCost(char[][] board) {
+		int cost = 0;
 		for (Coordinate c : constraints) {
 			Set<Coordinate> adjacentBoxes = getAdjacentBoxes(c);
 			int towards = 0;
@@ -137,28 +164,21 @@ public class Gokigen {
 			}
 
 			if (towards < Character.getNumericValue(puzzle[c.getY()][c.getX()])) {
-				unsatConstraints++;
+				cost++;
 			}
 
 		}
-		return unsatConstraints;
+		return cost;
 	}
 
-	private char[][] matrixCopy(char[][] matrix) {
-		char[][] copy = new char[matrix.length][];
-		for (int i = 0; i < matrix.length; i++)
-			copy[i] = matrix[i].clone();
-		return copy;
-	}
-
-	private void fillDeterminableBoxes() {
+	private void fillAllDeterminableBoxes(char[][] board) {
 		boolean changesMade = true;
 		while (changesMade) {
 			changesMade = false;
 			for (int i = 0; i <= n; i++) {
 				for (int j = 0; j <= n; j++) {
 					if (puzzle[i][j] != NO_CONSTRAINT) {
-						boolean changeMade = tryFill(new Coordinate(j, i));
+						boolean changeMade = tryFill(board, new Coordinate(j, i));
 						if (changeMade) {
 							changesMade = true;
 						}
@@ -168,11 +188,32 @@ public class Gokigen {
 		}
 	}
 
-	private void setSolution(Coordinate cell, char value) {
-		solution[cell.getY()][cell.getX()] = value;
+	private void fillDeterminableBoxesNear(char[][] board, Coordinate box) {
+		boolean changesMade = true;
+		while (changesMade) {
+			changesMade = false;
+			List<Coordinate> ajdacentNodes = getAdjacentNodes(box.getY(), box.getX());
+			for (Coordinate node : ajdacentNodes) {
+				if (puzzle[node.getY()][node.getX()] != NO_CONSTRAINT) {
+					boolean changeMade = tryFill(board, node);
+					if (changeMade) {
+						changesMade = true;
+					}
+				}
+			}
+		}
 	}
 
-	private boolean tryFill(Coordinate node) {
+	private List<Coordinate> getAdjacentNodes(int i, int j) {
+		List<Coordinate> adjacentConstraints = new ArrayList<>();
+		adjacentConstraints.add(new Coordinate(j, i));
+		adjacentConstraints.add(new Coordinate(j + 1, i));
+		adjacentConstraints.add(new Coordinate(j, i + 1));
+		adjacentConstraints.add(new Coordinate(j + 1, i + 1));
+		return adjacentConstraints;
+	}
+
+	private boolean tryFill(char[][] board, Coordinate node) {
 		int y = node.getY();
 		int x = node.getX();
 		Set<Coordinate> adjacentBoxes = getAdjacentBoxes(node);
@@ -180,27 +221,27 @@ public class Gokigen {
 		int incomingLines = 0;
 		int emptyBoxes = 0;
 		for (Coordinate box : adjacentBoxes) {
-			if (isLineTowards(solution, node, box))
+			if (isLineTowards(board, node, box))
 				incomingLines++;
-			else if (valueAt(solution, box) == NOT_FILLED)
+			else if (board[box.getY()][box.getX()] == NOT_FILLED)
 				emptyBoxes++;
 		}
 		if (emptyBoxes == 0)
 			return false;
 
 		if (incomingLines == value) {
-			for (Coordinate cell : adjacentBoxes) {
-				if (valueAt(solution, cell) == NOT_FILLED) {
-					fillBoxAwayFrom(node, cell);
+			for (Coordinate box : adjacentBoxes) {
+				if (board[box.getY()][box.getX()] == NOT_FILLED) {
+					fillBoxAwayFrom(board, node, box);
 				}
 			}
 			return true;
 		}
 
 		if (incomingLines + emptyBoxes == value) {
-			for (Coordinate cell : adjacentBoxes) {
-				if (valueAt(solution, cell) == NOT_FILLED) {
-					fillBoxTowards(node, cell);
+			for (Coordinate box : adjacentBoxes) {
+				if (board[box.getY()][box.getX()] == NOT_FILLED) {
+					fillBoxTowards(board, node, box);
 				}
 			}
 			return true;
@@ -228,57 +269,53 @@ public class Gokigen {
 		return adjacentBoxes;
 	}
 
+	private boolean isLineTowards(char[][] board, Coordinate node, Coordinate box) {
+		if (board[box.getY()][box.getX()] == NOT_FILLED)
+			return false;
+		if (node.getY() == box.getY()) {
+			if (node.getX() == box.getX())
+				return board[box.getY()][box.getX()] == DOWN;
+			else
+				return board[box.getY()][box.getX()] == UP;
+		} else {
+			if (node.getX() == box.getX())
+				return board[box.getY()][box.getX()] == UP;
+			else
+				return board[box.getY()][box.getX()] == DOWN;
+		}
+	}
+
 	private boolean isInBounds(Coordinate coordinate, int size) {
 		int x = coordinate.getX(), y = coordinate.getY();
 		return x >= 0 && x < size && y >= 0 && y < size;
 	}
 
-	private boolean isLineTowards(char[][] board, Coordinate node, Coordinate box) {
-		if (valueAt(board, box) == NOT_FILLED)
-			return false;
-		if (node.getY() == box.getY()) {
-			if (node.getX() == box.getX())
-				return valueAt(board, box) == DOWN;
-			else
-				return valueAt(board, box) == UP;
-		} else {
-			if (node.getX() == box.getX())
-				return valueAt(board, box) == UP;
-			else
-				return valueAt(board, box) == DOWN;
-		}
-	}
-
-	private void fillBoxTowards(Coordinate constraint, Coordinate cell) {
+	private void fillBoxTowards(char[][] board, Coordinate constraint, Coordinate cell) {
 		if (constraint.getY() == cell.getY()) {
 			if (constraint.getX() == cell.getX())
-				setSolution(cell, DOWN);
+				board[cell.getY()][cell.getX()] = DOWN;
 			else
-				setSolution(cell, UP);
+				board[cell.getY()][cell.getX()] = UP;
 		} else {
 			if (constraint.getX() == cell.getX())
-				setSolution(cell, UP);
+				board[cell.getY()][cell.getX()] = UP;
 			else
-				setSolution(cell, DOWN);
+				board[cell.getY()][cell.getX()] = DOWN;
 		}
 	}
 
-	private void fillBoxAwayFrom(Coordinate constraint, Coordinate cell) {
+	private void fillBoxAwayFrom(char[][] board, Coordinate constraint, Coordinate cell) {
 		if (constraint.getY() == cell.getY()) {
 			if (constraint.getX() == cell.getX())
-				setSolution(cell, UP);
+				board[cell.getY()][cell.getX()] = UP;
 			else
-				setSolution(cell, DOWN);
+				board[cell.getY()][cell.getX()] = DOWN;
 		} else {
 			if (constraint.getX() == cell.getX())
-				setSolution(cell, DOWN);
+				board[cell.getY()][cell.getX()] = DOWN;
 			else
-				setSolution(cell, UP);
+				board[cell.getY()][cell.getX()] = UP;
 		}
-	}
-
-	private char valueAt(char[][] board, Coordinate c) {
-		return board[c.getY()][c.getX()];
 	}
 
 	private Set<Coordinate> getConstraints() {
@@ -288,5 +325,12 @@ public class Gokigen {
 				if (puzzle[i][j] != NO_CONSTRAINT)
 					constraints.add(new Coordinate(j, i));
 		return constraints;
+	}
+
+	private char[][] matrixCopy(char[][] matrix) {
+		char[][] copy = new char[matrix.length][];
+		for (int i = 0; i < matrix.length; i++)
+			copy[i] = matrix[i].clone();
+		return copy;
 	}
 }

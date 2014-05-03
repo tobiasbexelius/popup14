@@ -1,67 +1,35 @@
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
+import java.util.BitSet;
 import java.util.List;
-import java.util.Set;
 
 public class Clique {
 
-	private static final int MAX_ALLOWED_CLIQUES = 1000;
-	private final Set<Integer> vertices;
-	private final List<Set<Integer>> neighbourList;
+	private static final int MAX_CLIQUES = 1000;
+	private final List<BitSet> neighbourList;
 	private int maximalCliques;
 	private boolean tooBig;
+	private final int n;
 
-	public Clique(Set<Integer> vertices, List<Set<Integer>> neighbourList) {
-		this.vertices = vertices;
+	public Clique(List<BitSet> neighbourList) {
 		this.neighbourList = neighbourList;
 		maximalCliques = 0;
+		this.n = neighbourList.size();
 		tooBig = false;
 	}
 
 	public int getNumMaximalCliques() {
-		bronKerboschVertexOrder();
-		return tooBig ? Integer.MAX_VALUE : maximalCliques;
+		BitSet R = new BitSet(n);
+		BitSet P = new BitSet(n);
+		P.flip(0, n);
+		BitSet X = new BitSet(n);
+		bronKerbosch(R, P, X);
+		return tooBig ? -1 : maximalCliques;
 	}
 
-	private void bronKerboschVertexOrder() {
-		Set<Integer> R = new HashSet<Integer>();
-		Set<Integer> P = new HashSet<Integer>(vertices);
-		Set<Integer> X = new HashSet<Integer>();
-		List<Integer> degeneracyList = getDegeneracyList();
-		for (int v : degeneracyList) {
-			Set<Integer> newR = new HashSet<Integer>(R);
-			newR.add(v);
-			Set<Integer> newP = getIntersection(P, neighbourList.get(v));
-			Set<Integer> newX = getIntersection(X, neighbourList.get(v));
-			bronKerbosch(newR, newP, newX);
-			P.remove(v);
-			X.add(v);
-		}
-	}
-
-	private List<Integer> getDegeneracyList() {
-		List<Integer> degeneracyList = new ArrayList<Integer>(vertices);
-		Collections.sort(degeneracyList, new Comparator<Integer>() {
-
-			@Override
-			public int compare(Integer o1, Integer o2) {
-				return neighbourList.get(o1).size() - neighbourList.get(o2).size();
-			}
-
-		});
-
-		return degeneracyList;
-
-	}
-
-	private void bronKerbosch(Set<Integer> R, Set<Integer> P, Set<Integer> X) {
-		if (maximalCliques > MAX_ALLOWED_CLIQUES) {
+	private void bronKerbosch(BitSet R, BitSet P, BitSet X) {
+		if (maximalCliques > MAX_CLIQUES) {
 			tooBig = true;
 			return;
 		}
-
 		if (P.isEmpty() && X.isEmpty()) {
 			maximalCliques++;
 			return;
@@ -69,25 +37,30 @@ public class Clique {
 
 		int pivot = getPivot(P, X);
 
-		Set<Integer> nonPivotNeighbours = new HashSet<>(P);
-		nonPivotNeighbours.removeAll(neighbourList.get(pivot));
+		BitSet nonPivotNeighbours = (BitSet) P.clone();
+		nonPivotNeighbours.andNot(neighbourList.get(pivot));
 
-		for (int v : nonPivotNeighbours) {
-			if (maximalCliques > MAX_ALLOWED_CLIQUES) {
+		for (int v = nonPivotNeighbours.nextSetBit(0); v >= 0; v = nonPivotNeighbours.nextSetBit(v + 1)) {
+			if (maximalCliques > MAX_CLIQUES) {
 				tooBig = true;
 				return;
 			}
-			Set<Integer> newR = new HashSet<>(R);
-			newR.add(v);
-			Set<Integer> newP = getIntersection(P, neighbourList.get(v));
-			Set<Integer> newX = getIntersection(X, neighbourList.get(v));
+			BitSet newR = (BitSet) R.clone();
+			newR.set(v);
+			BitSet newP = (BitSet) P.clone();
+			newP.and(neighbourList.get(v));
+
+			BitSet newX = (BitSet) X.clone();
+			newX.and(neighbourList.get(v));
+
 			bronKerbosch(newR, newP, newX);
-			P.remove(v);
-			X.add(v);
+
+			P.clear(v);
+			X.set(v);
 		}
 	}
 
-	private int getPivot(Set<Integer> P, Set<Integer> X) {
+	private int getPivot(BitSet P, BitSet X) {
 		int maxVertexP = getHighestDegreeVertex(P, P);
 		int maxDegreeP = maxVertexP == -1 ? -1 : neighbourList.get(maxVertexP).size();
 		int maxVertexX = getHighestDegreeVertex(P, X);
@@ -95,36 +68,19 @@ public class Clique {
 		return maxDegreeP > maxDegreeX ? maxVertexP : maxVertexX;
 	}
 
-	private int getHighestDegreeVertex(Set<Integer> P, Set<Integer> vertices) {
+	private int getHighestDegreeVertex(BitSet P, BitSet vertices) {
 		int max = -1;
 		int maxVertex = -1;
-		for (int v : vertices) {
-			Set<Integer> neighboursInP = getIntersection(neighbourList.get(v), P);
-			int degree = neighboursInP.size();
+
+		for (int v = vertices.nextSetBit(0); v >= 0; v = vertices.nextSetBit(v + 1)) {
+			BitSet neighboursInP = (BitSet) P.clone();
+			neighboursInP.and(neighbourList.get(v));
+			int degree = neighboursInP.cardinality();
 			if (degree > max) {
 				max = degree;
 				maxVertex = v;
 			}
 		}
 		return maxVertex;
-	}
-
-	public Set<Integer> getIntersection(Set<Integer> set1, Set<Integer> set2) {
-		Set<Integer> a;
-		Set<Integer> b;
-		Set<Integer> res = new HashSet<>();
-		if (set1.size() <= set2.size()) {
-			a = set1;
-			b = set2;
-		} else {
-			a = set2;
-			b = set1;
-		}
-		for (int e : a) {
-			if (b.contains(e)) {
-				res.add(e);
-			}
-		}
-		return res;
 	}
 }
