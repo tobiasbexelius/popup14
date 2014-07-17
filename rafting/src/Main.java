@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.List;
+
 public class Main {
 
 	private static final int X = 0;
@@ -8,18 +11,28 @@ public class Main {
 		io.getInt();
 		while (io.hasMoreTokens()) {
 			int nInner = io.getInt();
-			int[][] inner = new int[nInner][2];
-			for (int i = 0; i < nInner; i++) {
-				inner[i][X] = io.getInt();
-				inner[i][Y] = io.getInt();
+			List<LineSegment> inner = new ArrayList<>();
+
+			Point first = new Point(io.getInt(), io.getInt());
+			Point current = first;
+			Point next;
+			for (int i = 1; i < nInner; i++) {
+				next = new Point(io.getInt(), io.getInt());
+				inner.add(new LineSegment(current, next));
+				current = next;
 			}
+			inner.add(new LineSegment(current, first));
 
 			int nOuter = io.getInt();
-			int[][] outer = new int[nOuter][2];
-			for (int i = 0; i < nOuter; i++) {
-				outer[i][X] = io.getInt();
-				outer[i][Y] = io.getInt();
+			List<LineSegment> outer = new ArrayList<>();
+			first = new Point(io.getInt(), io.getInt());
+			current = first;
+			for (int i = 1; i < nOuter; i++) {
+				next = new Point(io.getInt(), io.getInt());
+				outer.add(new LineSegment(current, next));
+				current = next;
 			}
+			outer.add(new LineSegment(current, first));
 
 			io.println((shortestDistance(inner, outer) / 2));
 
@@ -29,24 +42,19 @@ public class Main {
 
 	}
 
-	private static double shortestDistance(int[][] inner, int[][] outer) {
-		int nInner = inner.length;
-		int nOuter = outer.length;
+	private static double shortestDistance(List<LineSegment> inner, List<LineSegment> outer) {
+		double min = Double.POSITIVE_INFINITY;
 
-		double minDistance = Double.POSITIVE_INFINITY;
-
-		for (int i = 0; i < nInner; i++) {
-			for (int j = 0; j < nOuter; j++) {
-				double distance = getDistance(inner[i][X], inner[i][Y], outer[j][X], outer[j][Y]);
-				if (distance < minDistance)
-					minDistance = distance;
+		for (int i = 0; i < inner.size(); i++) {
+			LineSegment s1 = inner.get(i);
+			for (int j = 0; j < outer.size(); j++) {
+				LineSegment s2 = outer.get(j);
+				double dist = s1.distanceTo(s2);
+				if (dist < min)
+					min = dist;
 			}
 		}
 
-		return minDistance;
-	}
-
-	private static double getDistance(int x1, int y1, int x2, int y2) {
-		return Math.sqrt(Math.pow(Math.abs(x1 - x2), 2) + Math.pow(Math.abs(y1 - y2), 2));
+		return min;
 	}
 }

@@ -1,7 +1,7 @@
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.TreeSet;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Main {
 
@@ -9,79 +9,51 @@ public class Main {
 		Kattio io = new Kattio(System.in);
 		int n = io.getInt();
 
-		List<Double> boxes = new ArrayList<>();
-		TreeSet<Point> points = new TreeSet<>();
+		Map<Integer, TreeMap<Integer, TreeMap<Integer, LineSegment>>> vertical = new HashMap<>();
+		Map<Integer, TreeMap<Integer, TreeMap<Integer, LineSegment>>> horizontal = new HashMap<>();
 
 		int minY = Integer.MAX_VALUE;
 		int minX = Integer.MAX_VALUE;
 		int maxX = Integer.MIN_VALUE;
 		int maxY = Integer.MIN_VALUE;
 
-		for (int i = 0; i < n * 2; i++) {
-			int x = io.getInt();
-			int y = io.getInt();
-			if (x < minX)
-				minX = x;
-			if (y < minY)
-				minY = y;
-			if (x > maxX)
-				maxX = x;
-			if (y > maxY)
-				maxY = y;
-			points.add(new Point(x, y));
-		}
-
-		double totalArea = (maxX - minX) * (maxY - minY);
-
-		for (Point current : points) {
-			if (current.getY() == maxY)
-				break;
-			for (Point right : points.tailSet(current, false)) {
-
-				if (current.getY() != right.getY())
-					break;
-
-				Point up = null;
-
-				for (Point p : points.tailSet(current, false)) {
-					if (current.getX() == p.getX()) {
-						up = p;
-						break;
-					}
-					if (p.getY() > current.getY() && p.getX() > current.getX())
-						break;
-				}
-
-				if (up == null)
-					continue;
-
-				Point upperRight = null;
-
-				for (Point p : points.tailSet(up, false)) {
-					if (right.getX() == p.getX() && up.getY() == p.getY()) {
-						upperRight = p;
-						break;
-					}
-
-					if (p.getX() > right.getX() || p.getY() > up.getY())
-						break;
-				}
-
-				if (upperRight == null)
-					continue;
-
-				double area = (right.getX() - current.getX()) * (up.getY() - current.getY());
-				boxes.add(area / totalArea);
-				break;
-
+		for (int i = 0; i < n; i++) {
+			int x1 = io.getInt();
+			int y1 = io.getInt();
+			int x2 = io.getInt();
+			int y2 = io.getInt();
+			LineSegment l = new LineSegment(new Point(x1, y1), new Point(x2, y2));
+			int length = (int) Math.round(l.length());
+			int x = (int) l.getStart().getX();
+			int y = (int) l.getStart().getY();
+			if (l.isVertical()) {
+				if (!vertical.containsKey(length))
+					vertical.put(length, new TreeMap<Integer, TreeMap<Integer, LineSegment>>());
+				if (!vertical.get(length).containsKey(x))
+					vertical.get(length).put(x, new TreeMap<Integer, LineSegment>());
+				vertical.get(length).get(x).put(y, l);
+			} else {
+				if (!horizontal.containsKey(length))
+					horizontal.put(length, new TreeMap<Integer, TreeMap<Integer, LineSegment>>());
+				if (!horizontal.get(length).containsKey(x))
+					horizontal.get(length).put(x, new TreeMap<Integer, LineSegment>());
+				horizontal.get(length).get(x).put(y, l);
 			}
+
+			minX = (int) Math.round(Math.min(minX, l.getStart().getX()));
+			minY = (int) Math.round(Math.min(minY, l.getStart().getY()));
+			maxX = (int) Math.round(Math.max(maxX, l.getEnd().getX()));
+			maxY = (int) Math.round(Math.max(maxY, l.getEnd().getY()));
+
 		}
 
-		Collections.sort(boxes);
+		Point min = new Point(minX, minY);
+		Point max = new Point(maxX, maxY);
 
-		for (int i = boxes.size() - 1; i >= 0; i--) {
-			io.println(boxes.get(i));
-		}
+		List<Double> squares = new SquarePie(vertical, horizontal, min, max).squares();
+
+		for (int i = 0; i < squares.size(); i++)
+			io.println(squares.get(i));
 
 		io.flush();
 		io.close();

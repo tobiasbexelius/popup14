@@ -146,6 +146,12 @@ public class Point implements Comparable<Point> {
 		return Math.sqrt(Math.pow(p.getX() - x, 2) + Math.pow(p.getY() - y, 2));
 	}
 
+	public double squareDistance(Point p) {
+		double xDiff = p.getX() - x;
+		double yDiff = p.getY() - y;
+		return xDiff * xDiff + yDiff * yDiff;
+	}
+
 	/**
 	 * Returns the magnitude of this point, that is the distance from this point to
 	 * origo.

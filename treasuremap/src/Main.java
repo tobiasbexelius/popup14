@@ -1,12 +1,17 @@
+import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Main {
 
-	Map<String, Double> directions = new HashMap<String, Double>() {
-		{
+	static Map<String, Double> directions = new HashMap<String, Double>() {
+		private static final long serialVersionUID = 1L;
+
+		{ // SWbS SW SWbW WSW WbS W WbN WNW NWbW NW NWbN
 			put("N", 0.0);
-			put("NbN", 11.25);
+			put("NbE", 11.25);
 			put("NNE", 22.5);
 			put("NEbN", 33.75);
 			put("NE", 45.0);
@@ -34,7 +39,7 @@ public class Main {
 			put("WNW", 292.5);
 			put("NWbW", 303.75);
 			put("NW", 315.0);
-			put("NWN", 326.25);
+			put("NWbN", 326.25);
 			put("NNW", 337.5);
 			put("NbW", 348.75);
 
@@ -42,18 +47,40 @@ public class Main {
 	};
 
 	public static void main(String[] args) {
+		DecimalFormat df = new DecimalFormat("0.00");
 		Kattio io = new Kattio(System.in);
 		while (io.hasMoreTokens()) {
 			int n = io.getInt();
 			if (n == 0)
 				break;
 
+			List<LineSegment> path = new ArrayList<>();
+			Point current = new Point(0, 0);
+
 			for (int i = 0; i < n; i++) {
 				String dir = io.getWord();
 				int steps = io.getInt();
+				double x = Math.sin(Math.toRadians(90 - directions.get(dir)));
+				double y = Math.cos(Math.toRadians(90 - directions.get(dir)));
+				Point next = new Point(current.getX() + steps * x, current.getY() + steps * y);
+				path.add(new LineSegment(current, next));
+				current = next;
 			}
 
-			double d = io.getDouble();
+			double d = Math.toRadians(io.getDouble());
+
+			double x = current.getX() * Math.cos(d) - current.getY() * Math.sin(d);
+			double y = current.getY() * Math.cos(d) + current.getX() * Math.sin(d);
+
+			Point realX = new Point(x, y);
+			double min = Double.POSITIVE_INFINITY;
+			for (int i = 0; i < path.size(); i++) {
+				double dist = path.get(i).distanceTo(realX);
+				if (dist < min)
+					min = dist;
+			}
+
+			io.println(df.format(min));
 
 		}
 		io.flush();
